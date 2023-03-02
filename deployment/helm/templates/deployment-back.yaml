@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "backstage.fullname" . }}-backend
+  namespace: {{ include "backstage.fullname" . }}
+  labels:
+    app: {{ include "backstage.fullname" . }}
+    component: backend
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ include "backstage.fullname" . }}
+      component: backend
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        ad.datadoghq.com/backstage.logs: '[{"source":"backstage","service":"backend"}]'
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        app: {{ include "backstage.fullname" . }}
+        component: backend
+    spec:
+      containers:
+        - name: {{ include "backstage.fullname" . }}-backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - containerPort: 7007
+          envFrom:
+            - secretRef:
+                name: backstage-backend
+            - configMapRef:
+                name: postgres-config
+            - configMapRef:
+                name: backstage-app-env
+            - secretRef:
+                name: postgres-secrets
+          env:
+            - name: NODE_ENV
+              value: development
+          volumeMounts:
+          - name: app-config
+            mountPath: /app/app-config.yaml
+            subPath: app-config.yaml
+          - name: ca-volume
+            mountPath:  /usr/local/share/ca-certificates/root-ca.crt
+            subPath: root-ca.crt
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+      volumes:
+      - name: app-config
+        configMap:
+          name: backstage-app-config
+          items:
+          - key: app-config.yaml
+            path: app-config.yaml
+      - name: ca-volume
+        secret:
+          secretName: backstage-backend
+          items:
+          - key: root-ca.crt
+            path: root-ca.crt      
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

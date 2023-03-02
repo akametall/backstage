@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage-frontend
+  labels:
+    app: backstage
+    component: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backstage
+      component: frontend
+  template:
+    metadata:
+      annotations:
+        ad.datadoghq.com/backstage.logs: '[{"source":"backstage","service":"frontend"}]'
+      labels:
+        app: backstage
+        component: frontend
+    spec:
+      containers:
+        - name: backstage-frontend
+          image: registry.ru/backstage-frontend:0.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            -  containerPort: 80
+              
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          envFrom:
+            - configMapRef:
+                name: backstage-app-env
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/app-config.yaml
+              subPath: app-config.yaml
+      volumes:
+        - name: app-config
+          configMap:
+            name: backstage-app-config    
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backstage-frontend
+  labels:
+    app: backstage
+    component: frontend
+spec:
+  selector:
+    app: backstage
+    component: frontend
+  ports:
+    - port: 443
+      targetPort: 80
+  type: ClusterIP

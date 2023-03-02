@@ -1,0 +1,119 @@
+# The purpose of this image is to serve the frontend app content separately.
+# By default the Backstage backend uses the app-backend plugin to serve the
+# app from the backend itself, but it may be desirable to move the frontend
+# content serving to a separate deployment, in which case this image can be
+# used.
+
+# This dockerfile also performs the build first inside docker. This may come
+# with a build time impact, but is sometimes desirable. If you want to run the
+# build on the host instead, use the file simply named Dockerfile in this folder
+# instead.
+
+# USAGE:
+#
+# - Copy this file and the "docker" folder from this directory to your project
+#   root
+#
+# - Update your .dockerignore, make sure that the source folders are not
+#   excluded, but do exclude node_modules and build artifacts:
+#
+#       .git
+#       node_modules
+#       packages/*/dist
+#       packages/*/node_modules
+#       plugins/*/dist
+#       plugins/*/node_modules
+#
+# - Update the copy of this file to add configuration arguments to the "build"
+#   command, for example:
+#
+#       RUN yarn workspace app build --config <config1> --config <config2> ...
+#
+# - In your project root, run:
+#
+#       docker build -t backstage-frontend -f Dockerfile.dockerbuild .
+
+
+
+FROM node:14-buster AS build
+
+RUN mkdir /app
+COPY ./backstage-app/ /app
+WORKDIR /app
+
+ENV TZ="UTC"
+ENV NEXUS_REPO_URL="***"
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG NEXUS_REPO_URI="${NEXUS_REPO_URL}/repository"
+
+ADD http://***/cert.pem /usr/local/share/ca-certificates/cert.crt
+
+RUN bash -c 'echo -e "deb ${NEXUS_REPO_URI}/debian-proxy bullseye main contrib non-free\ndeb ${NEXUS_REPO_URI}/debian-security bullseye-security main contrib non-free\ndeb ${NEXUS_REPO_URI}/debian-proxy bullseye-updates main contrib non-free" > /etc/apt/sources.list' \
+    && bash -c 'echo -e "APT::Install-Recommends \"0\";" > /etc/apt/apt.conf.d/' \
+    && mkdir -p /etc/ssl/certs/ \
+    && cat /usr/local/share/ca-certificates/cert.crt > /etc/ssl/certs/certificates.crt\
+    && apt-get update \
+    && apt-get install --yes --no-install-recommends --fix-missing \
+        ca-certificates \
+        openssl \
+    && update-ca-certificates --fresh \
+    && apt-get autoremove -yqq --purge \
+    && apt-get clean \
+    && rm -rf \
+        /var/lib/apt/lists/* \
+        /tmp/* \
+        /var/tmp/* \
+        /usr/share/man \
+        /usr/share/doc \
+        /usr/share/doc-base \
+    && yarn config set "strict-ssl" false \
+    && yarn config set registry "${NEXUS_REPO_URL}/repository/npm-all/" \
+    && cd /tmp && wget ${NEXUS_REPO_URL}/repository/nodejs-headers/v16.18.1/node-v16.18.1-headers.tar.gz \
+    && npm config set tarball "/tmp/node-v16.18.1-headers.tar.gz"
+
+ENV CYPRESS_INSTALL_BINARY=${NEXUS_REPO_URL}/repository/raw-download.cypress.io-proxy/
+ENV CYPRESS_DOWNLOAD_MIRROR=${NEXUS_REPO_URL}/repository/raw-download.cypress.io-proxy/
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+
+RUN yarn install --network-timeout 600000 \
+    && rm -rf "$(yarn cache dir)" \
+    && yarn workspace app build
+
+FROM nginx:mainline
+
+LABEL VERSION=0.0.1
+
+ENV TZ="UTC"
+ENV NEXUS_REPO_URL="***"
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG NEXUS_REPO_URI="${NEXUS_REPO_URL}/repository"
+
+ADD http://****/cert.pem /usr/local/share/ca-certificates/cert.crt
+
+RUN bash -c 'echo -e "deb ${NEXUS_REPO_URI}/debian-proxy bullseye main contrib non-free\ndeb ${NEXUS_REPO_URI}/debian-security bullseye-security main contrib non-free\ndeb ${NEXUS_REPO_URI}/debian-proxy bullseye-updates main contrib non-free" > /etc/apt/sources.list' \
+    && bash -c 'echo -e "APT::Install-Recommends \"0\";" > /etc/apt/apt.conf.d/' \
+    && mkdir -p /etc/ssl/certs/ \
+    && cat /usr/local/share/ca-certificates/cert.crt > /etc/ssl/certs/ca-certificates.crt\
+    && apt-get update \
+    && apt-get install --yes --no-install-recommends --fix-missing \
+        ca-certificates \
+        openssl \
+        jq \
+    && update-ca-certificates --fresh \
+    && apt-get autoremove -yqq --purge \
+    && apt-get clean \
+    && rm -rf \
+        /var/lib/apt/lists/* \
+        /tmp/* \
+        /var/tmp/* \
+        /usr/share/man \
+        /usr/share/doc \
+        /usr/share/doc-base 
+
+COPY --from=build /app/packages/app/dist /usr/share/nginx/html 
+COPY ./backstage-app/docker/default.conf.template /etc/nginx/templates/default.conf.template 
+COPY ./backstage-app/docker/inject-config.sh /docker-entrypoint.d/40-inject-config.sh
+
+ENV PORT 80

@@ -1,0 +1,18 @@
+{{- if .Values.frontend.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "backstage.fullname" . }}-frontend
+  namespace: {{ include "backstage.fullname" . }}
+  labels:
+    app: {{ include "backstage.fullname" . }}
+    component: frontend
+spec:
+  type: {{ .Values.frontend.serviceType }}
+  selector:
+    app: {{ include "backstage.fullname" . }}
+    component: frontend
+  ports:
+    - port: {{ .Values.frontend.servicePort }}
+      targetPort: {{ .Values.frontend.serviceTargetPort }}
+{{- end -}}

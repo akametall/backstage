@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "backstage.fullname" . }}-app-config
+  namespace: {{ include "backstage.fullname" . }}
+data:
+  app-config.yaml: |-
+{{ toYaml .Values.config| indent 4 }}

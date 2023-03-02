@@ -1,0 +1,38 @@
+build_back:
+  variables:
+    IMG_NAME: registry.ru/backstage-backend
+    DOCKERFILE_PATH: ./backstage-app/packages/backend/
+    DOCKERFILE: Dockerfile
+    WRK_MEMORY_LIMIT_IMAGE_HELPER:    256Mi
+    WRK_MEMORY_LIMIT_IMAGE:           4100Mi
+    WRK_CPU_LIMIT_IMAGE:              4
+    WRK_MAX_PROCESS_IMAGE:            4
+    WRK_MAX_MEMORY_IMAGE:             4096
+  trigger:
+    include:
+      - project: 'abp/ci-templates'
+        ref: v5
+        file: 'entrypoints/image/build_image_label.yml' 
+  rules:
+    - changes:
+        - DOCKERFILE
+
+build_front:
+  variables:
+    IMG_NAME: registry.ru/backstage-frontend
+    DOCKERFILE_PATH: ./backstage-app/
+    DOCKERFILE: Dockerfile.dockerbuild
+    WRK_MEMORY_LIMIT_IMAGE_HELPER:    256Mi
+    WRK_MEMORY_LIMIT_IMAGE:           4100Mi
+    WRK_CPU_LIMIT_IMAGE:              4
+    WRK_MAX_PROCESS_IMAGE:            4
+    WRK_MAX_MEMORY_IMAGE:             4096
+  trigger:
+    include:
+      - project: 'abp/ci-templates'
+        ref: v5
+        file: 'entrypoints/image/build_image_label.yml'
+  rules:
+    - changes:
+        - DOCKERFILE
+  

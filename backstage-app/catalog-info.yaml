@@ -1,0 +1,47 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: test
+  description: An example of a Backstage application.
+  annotations:
+    backstage.io/source-location: url:https://github.ru/backstage/
+    gitlab.com/project-id: ‘****’
+    backstage.io/techdocs-ref: dir:.
+    argocd/app-name: test
+  # Example for optional annotations
+  # annotations:
+  #   github.com/project-slug: backstage/backstage
+  #   backstage.io/techdocs-ref: dir:.
+spec:
+  type: service
+  lifecycle: dev
+  owner: test
+  system: backstage
+  dependsOn: ['resource:backstage-db']
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: backstage-db
+  description: Stores plugin data
+spec:
+  type: database
+  owner: test
+  system: backstage
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: backstage
+  description: all related to backstage
+spec:
+  owner: test
+---
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: teams-catalogs
+spec:
+  type: url
+  targets:
+    - https://github.ru/catalog/-/blob/test/example/all.yaml

@@ -1,0 +1,42 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backstage-ingress
+  annotations:
+    kubernetes.io/ingress.allow-http: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/hsts: "false"
+  
+  labels:
+    app: backstage
+    component: ingress
+spec:
+#  ingressClassName: nginx-default
+  tls:
+   - secretName: backstage-cert
+     hosts:
+      - backstage.ru
+#    - test-ui-back.io
+  rules:
+    - host: backstage.ru
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backstage-frontend
+                port:
+                  number: 443
+          - path: /api/
+            pathType: Prefix
+            backend:
+              service:
+                name: backstage-backend
+                port:
+                  number: 443
+
+
+
+

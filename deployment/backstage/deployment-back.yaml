@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage-backend
+  labels:
+    app: backstage
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backstage
+      component: backend
+  template:
+    metadata:
+      annotations:
+        ad.datadoghq.com/backstage.logs: '[{"source":"backstage","service":"backend"}]'
+      labels:
+        app: backstage
+        component: backend
+    spec:
+      containers:
+        - name: backstage-backend
+#          command: ["node"]
+#          args:
+#            - "packages/backend"
+#            - "--config"
+#            - "app-config.yaml"
+#            - "--config"
+          image: registry.ru/backstage-backend:0.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 7007
+              
+          envFrom:
+            - secretRef:
+                name: backstage-backend
+            - configMapRef:
+                name: postgres-config
+            - configMapRef:
+                name: backstage-app-env
+            - secretRef:
+                name: postgres-secrets
+          env:
+            - name: NODE_ENV
+              value: development
+          resources:
+            limits:
+              cpu: 500m
+              memory: 1024Mi
+            requests:
+              cpu: 100m
+              memory: 1024M
+          volumeMounts:
+          - name: app-config
+            mountPath: /app/app-config.yaml
+            subPath: app-config.yaml
+          - name: ca-volume
+            mountPath:  /usr/local/share/ca-certificates/root-ca.crt
+            subPath: root-ca.crt
+      volumes:
+      - name: app-config
+        configMap:
+          name: backstage-app-config
+          items:
+          - key: app-config.yaml
+            path: app-config.yaml
+      - name: ca-volume
+        secret:
+          secretName: backstage-backend
+          items:
+          - key: root-ca.crt
+            path: root-ca.crt
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backstage-backend
+  labels:
+    app: backstage
+    component: backend
+spec:
+  selector:
+    app: backstage
+    component: backend
+  ports:
+    - port: 443
+      targetPort: 7007
+  type: ClusterIP
+

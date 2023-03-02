@@ -1,0 +1,9 @@
+./backstage-app/.git
+#docker
+./backstage-app/node_modules
+./backstage-app/packages/*/dist
+./backstage-app/packages/*/node_modules
+./backstage-app/plugins/*/dist
+./backstage-app/plugins/*/node_modules
+./backstage-app/*.local.yaml
+./backstage-app/helm/
